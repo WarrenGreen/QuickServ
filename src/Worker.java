@@ -1,13 +1,12 @@
 import java.awt.image.BufferedImage;
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.Map.Entry;
 
 import javax.imageio.ImageIO;
 
@@ -22,22 +21,21 @@ public class Worker implements Runnable{
 	@Override
 	public void run() {
 		try{
-			BufferedOutputStream out = new BufferedOutputStream(c_sock.getOutputStream());
 			BufferedReader in  = new BufferedReader(new InputStreamReader(c_sock.getInputStream()));
 			c_sock.setKeepAlive(true);
 			
 						
-			//while(Server.running && !c_sock.isClosed() && c_sock.getKeepAlive()){
+			while(!c_sock.isClosed() && c_sock.getKeepAlive()){
 				HashMap<String, String> header = parse(in);
 				
-				sendResponse(header, out);
+				sendResponse(header, c_sock.getOutputStream());
 				
 				if(header.get("connection") == null || header.get("connection").compareToIgnoreCase("keep-alive") != 0){
 					c_sock.setKeepAlive(false);
 				}
 				
-			//}
-			out.close();
+			}
+			c_sock.close();
 			in.close();
 
 			
@@ -50,7 +48,7 @@ public class Worker implements Runnable{
 	}
 	
 	
-	public void sendResponse(HashMap<String, String> header, BufferedOutputStream out) throws IOException{
+	public void sendResponse(HashMap<String, String> header, OutputStream out) throws IOException{
 		int response = 200;
 		String respString = Server.STRING200;
 		String contentType = "text/html";
