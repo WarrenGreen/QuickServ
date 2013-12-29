@@ -1,3 +1,4 @@
+package com.green.quickserv;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -12,7 +13,7 @@ import javax.imageio.ImageIO;
 
 
 public class Worker implements Runnable{
-	private Socket c_sock;
+	public Socket c_sock;
 	
 	public Worker(Socket c_sock){
 		this.c_sock = c_sock;
@@ -20,12 +21,16 @@ public class Worker implements Runnable{
 	
 	@Override
 	public void run() {
+		BufferedReader in = null;
 		try{
-			BufferedReader in  = new BufferedReader(new InputStreamReader(c_sock.getInputStream()));
+			//Open input stream
+			in = new BufferedReader(new InputStreamReader(c_sock.getInputStream()));
 			c_sock.setKeepAlive(true);
 			
-						
-			while(!c_sock.isClosed() && c_sock.getKeepAlive()){
+			//Read until socket is closed or connection isn't keep-alive
+			while(Server.running && !c_sock.isClosed() && c_sock.getKeepAlive()){
+				System.out.println("Worker Running");
+				//parse in header
 				HashMap<String, String> header = parse(in);
 				
 				sendResponse(header, c_sock.getOutputStream());
@@ -35,10 +40,15 @@ public class Worker implements Runnable{
 				}
 				
 			}
-			c_sock.close();
-			in.close();
 
 			
+		}catch(IOException ex){
+			//ex.printStackTrace();
+		}
+		
+		try{
+			c_sock.close();
+			in.close();
 		}catch(IOException ex){
 			ex.printStackTrace();
 		}
@@ -48,7 +58,15 @@ public class Worker implements Runnable{
 	}
 	
 	
+	/**
+	 * Constructs and sends an HTML response
+	 * 
+	 * @param header
+	 * @param out
+	 * @throws IOException
+	 */
 	public void sendResponse(HashMap<String, String> header, OutputStream out) throws IOException{
+		//Default response to a 200 code
 		int response = 200;
 		String respString = Server.STRING200;
 		String contentType = "text/html";
@@ -56,17 +74,18 @@ public class Worker implements Runnable{
 		String connection = "close";
 		
 		
+		//501 if there is no requested file
 		if(header.get("file") == null){
 			response = 501;
 			respString = Server.STRING501;
 			content = Server.CONTENT501.getBytes();
-		}else if(! new File(header.get("file")).exists()){
+		}else if(! new File(header.get("file")).exists()){ //404 if file doesn't exist
 			response = 404;
 			respString = Server.STRING404;
 			content = Server.CONTENT404.getBytes();
-		}else if(new File(header.get("file")).isDirectory()){
+		}else if(new File(header.get("file")).isDirectory()){ //Generate index page for directory
 			content = generateIndex(header.get("file")).getBytes();
-		}else{
+		}else{ //Serve file if it is a valid file
 			contentType = getFileType(header.get("file"));
 			if(contentType.compareTo("application/octet-stream")!= 0){
 				content = readImage(header.get("file"));
@@ -83,6 +102,12 @@ public class Worker implements Runnable{
 		out.write(content);
 	}
 	
+	/**
+	 * Reads an image file and returns the byte array
+	 * 
+	 * @param filename
+	 * @return
+	 */
 	public byte[] readImage(String filename){
 		
 		byte[] imgBytes = null;
@@ -100,6 +125,12 @@ public class Worker implements Runnable{
 		return imgBytes;
 	}
 	
+	/**
+	 * Generate index page for given directory
+	 * 
+	 * @param filename
+	 * @return
+	 */
 	public String generateIndex(String filename){
 		File file = new File(filename);
 		String ret = "<html><body><h1>QuickServ</h1><br />";
@@ -117,6 +148,12 @@ public class Worker implements Runnable{
 		return ret;
 	}
 	
+	/**
+	 * Parse header and return hashmap of parameters
+	 * 
+	 * @param in
+	 * @return
+	 */
 	public HashMap<String, String> parse(BufferedReader in){
 		HashMap<String, String> header = new HashMap<String, String>();
 		try{
@@ -138,13 +175,17 @@ public class Worker implements Runnable{
 			}
 			
 		}catch(IOException ex){
-			//TODO: Fill Exceptions
-			ex.printStackTrace();
+			//ex.printStackTrace();
 		}
 		
 		return header;
 	}
 	
+	/**
+	 * Returns the content type for a given file based on its type
+	 * @param file
+	 * @return
+	 */
 	public String getFileType(String file){
 		String contentType = "";
 		
