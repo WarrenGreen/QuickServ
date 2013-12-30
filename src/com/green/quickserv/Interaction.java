@@ -1,36 +1,30 @@
 package com.green.quickserv;
-import java.awt.EventQueue;
-
-import javax.swing.JFrame;
-
-import java.awt.GridBagLayout;
-
-import javax.swing.JTabbedPane;
-
-import java.awt.GridBagConstraints;
-
-import javax.swing.JToolBar;
-import javax.swing.BoxLayout;
-
 import java.awt.BorderLayout;
-
-import javax.swing.JPanel;
-import javax.swing.JTree;
-import javax.swing.JButton;
-import javax.swing.JMenuBar;
-import javax.swing.JTextField;
-
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.FlowLayout;
-
-import javax.swing.JLabel;
-
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
-
-import javax.swing.SwingConstants;
-
-import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
 import java.io.IOException;
+import java.util.Enumeration;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.JTree;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.TreePath;
 
 
 public class Interaction {
@@ -38,10 +32,10 @@ public class Interaction {
 	private JFrame frame;
 	private JTabbedPane tabbedPane;
 	private JPanel FileViewPanel;
-	private JPanel panel;
+	private JPanel StatusPanel;
 	private JTree tree;
 	private JPanel panel_1;
-	private JButton button;
+	private JButton btnShareAll;
 	private JPanel statusBarPanel;
 	private JButton btnStart;
 	private JLabel lblStatusBar;
@@ -50,6 +44,9 @@ public class Interaction {
 	
 	private static Server serv;
 	private Thread t = null;
+	private JButton btnShareNone;
+	private JButton btnShare;
+	private JButton btnUnshare;
 
 	/**
 	 * Launch the application.
@@ -81,20 +78,78 @@ public class Interaction {
 	private void initialize() {
 		frame = new JFrame();
 		frame.setBounds(100, 100, 367, 391);
+		frame.setMinimumSize(new Dimension(367, 391));
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 		
 		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
 		frame.getContentPane().add(tabbedPane, BorderLayout.CENTER);
 		
-		panel = new JPanel();
-		tabbedPane.addTab("Status", null, panel, null);
-		GridBagLayout gbl_panel = new GridBagLayout();
-		gbl_panel.columnWidths = new int[]{0, 0, 0};
-		gbl_panel.rowHeights = new int[]{0, 0};
-		gbl_panel.columnWeights = new double[]{0.0, 1.0, Double.MIN_VALUE};
-		gbl_panel.rowWeights = new double[]{0.0, Double.MIN_VALUE};
-		panel.setLayout(gbl_panel);
+		FileViewPanel = new JPanel();
+		tabbedPane.addTab("File View", null, FileViewPanel, null);
+		
+		DefaultMutableTreeNode root = getFileStructure(new DefaultMutableTreeNode(new File("./")));
+		tree = new JTree(root);
+		CellRenderer cr = new CellRenderer();
+		FileViewPanel.setLayout(new BorderLayout(0, 0));
+		tree.setCellRenderer(cr);
+		
+		FileViewPanel.add(tree, BorderLayout.CENTER);
+		
+		panel_1 = new JPanel();
+		FileViewPanel.add(panel_1, BorderLayout.EAST);
+		panel_1.setLayout(new GridLayout(10, 1, 0, 0));
+		
+		btnShareAll = new JButton("Share All");
+		btnShareAll.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				setAllShare(true);
+			}
+		});
+		panel_1.add(btnShareAll);
+		
+		btnShareNone = new JButton("Share None");
+		btnShareNone.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				setAllShare(false);
+			}
+		});
+		panel_1.add(btnShareNone);
+		
+		btnUnshare= new JButton("UnShare");
+		btnUnshare.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				for(TreePath tp: tree.getSelectionPaths()){
+					File f = (File)((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
+					setShare(f, false);
+				}
+				
+				tree.repaint();
+			}
+		});
+		panel_1.add(btnUnshare);
+		
+		btnShare = new JButton("Share");
+		btnShare.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				for(TreePath tp: tree.getSelectionPaths()){
+					File f = (File)((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
+					setShare(f, true);
+				}
+				
+				tree.repaint();
+			}
+		});
+		panel_1.add(btnShare);
+		
+		StatusPanel = new JPanel();
+		tabbedPane.addTab("Status", null, StatusPanel, null);
+		GridBagLayout gbl_StatusPanel = new GridBagLayout();
+		gbl_StatusPanel.columnWidths = new int[]{0, 0, 0};
+		gbl_StatusPanel.rowHeights = new int[]{0, 0};
+		gbl_StatusPanel.columnWeights = new double[]{0.0, 1.0, Double.MIN_VALUE};
+		gbl_StatusPanel.rowWeights = new double[]{0.0, Double.MIN_VALUE};
+		StatusPanel.setLayout(gbl_StatusPanel);
 		
 		lblPort = new JLabel("Port: ");
 		GridBagConstraints gbc_lblPort = new GridBagConstraints();
@@ -104,28 +159,15 @@ public class Interaction {
 		gbc_lblPort.ipadx = 5;
 		gbc_lblPort.gridx = 0;
 		gbc_lblPort.gridy = 0;
-		panel.add(lblPort, gbc_lblPort);
+		StatusPanel.add(lblPort, gbc_lblPort);
 		
-		txtPort = new JTextField();
+		txtPort = new JTextField("3047");
 		GridBagConstraints gbc_txtPort = new GridBagConstraints();
 		gbc_txtPort.fill = GridBagConstraints.HORIZONTAL;
 		gbc_txtPort.gridx = 1;
 		gbc_txtPort.gridy = 0;
-		panel.add(txtPort, gbc_txtPort);
+		StatusPanel.add(txtPort, gbc_txtPort);
 		txtPort.setColumns(10);
-		
-		FileViewPanel = new JPanel();
-		tabbedPane.addTab("File View", null, FileViewPanel, null);
-		FileViewPanel.setLayout(new BorderLayout(0, 0));
-		
-		tree = new JTree();
-		FileViewPanel.add(tree, BorderLayout.CENTER);
-		
-		panel_1 = new JPanel();
-		FileViewPanel.add(panel_1, BorderLayout.EAST);
-		
-		button = new JButton("");
-		panel_1.add(button);
 		
 		statusBarPanel = new JPanel();
 		FlowLayout flowLayout = (FlowLayout) statusBarPanel.getLayout();
@@ -139,6 +181,10 @@ public class Interaction {
 		btnStart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				if(btnStart.getText().compareTo("Start") == 0){
+					if(txtPort.getText().isEmpty() || Integer.parseInt(txtPort.getText()) <= 1024 || Integer.parseInt(txtPort.getText()) > 65535){
+						txtPort.setText("Invalid Port");
+						return;
+					}
 					serv = new Server(Integer.parseInt(txtPort.getText()));
 					//serv.start();
 					t = new Thread(serv);
@@ -146,16 +192,18 @@ public class Interaction {
 				
 					lblStatusBar.setText("Server: running");
 					btnStart.setText("Stop");
+					txtPort.setEditable(false);
 				}else{
-					serv.running = false;
 					try {
 						serv.s_sock.close();
 					} catch (IOException ex) {
 						ex.printStackTrace();
 					}
+					Server.running = false;
 					
 					lblStatusBar.setText("Server: stopped");
 					btnStart.setText("Start");
+					txtPort.setEditable(true);
 				}
 			}
 		});
@@ -164,6 +212,53 @@ public class Interaction {
 		
 	}
 	
+	private void setAllShare(Boolean share){
+		Enumeration treeEnum = ((DefaultMutableTreeNode)tree.getModel().getRoot()).preorderEnumeration();
+		treeEnum.nextElement();
+		while(treeEnum.hasMoreElements()){
+			File f = ((File)((DefaultMutableTreeNode)treeEnum.nextElement()).getUserObject());
+			setShare(f, share);
+		}
+		
+		tree.repaint();
+	}
+	
+	private void setShare(File f, Boolean share){
+		f.setReadable(share);
+	}
+	
+	private DefaultMutableTreeNode getFileStructure(DefaultMutableTreeNode node) {
+		File cf = ((File)node.getUserObject());
+		if(!cf.isDirectory() || !cf.canRead()) return node;
+		for(File f: cf.listFiles()){
+			DefaultMutableTreeNode n = new DefaultMutableTreeNode(f);
+			node.add(n);
+			getFileStructure(n);
+		}
+		
+		return node;
+	}
+	
+	class CellRenderer extends DefaultTreeCellRenderer {
+		
+		public Component getTreeCellRendererComponent(JTree tree, Object value, boolean sel,   
+                boolean expanded, boolean leaf, int row, boolean hasFocus)          
+		{  
+			super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);  
+			DefaultMutableTreeNode node = (DefaultMutableTreeNode)value;  
+			File f = (File) node.getUserObject();			
+			
+			if(f.canRead()){
+				this.setForeground(Color.black);
+			}else{
+				this.setForeground(Color.red);
+			}
+			
+			return this;  
+		}  
+		
+	}
+
 
 
 }

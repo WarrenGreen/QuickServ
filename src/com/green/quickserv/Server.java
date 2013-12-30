@@ -19,6 +19,7 @@ public class Server implements Runnable{
 		
 	public Server(int port){
 		this.port = port;
+		
 	}
 	
 	/**
@@ -58,7 +59,7 @@ public class Server implements Runnable{
 			}
 			
 		}catch(IOException ex){
-			//System.out.println("Port already in use.");
+			if(running) System.out.println("Port already in use.");
 			//ex.printStackTrace();
 		}catch(SecurityException ex){
 			System.out.println("Security manager does not allow this.");

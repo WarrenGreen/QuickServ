@@ -138,10 +138,12 @@ public class Worker implements Runnable{
 		
 		if(filename.compareTo("./") != 0 ){
 			path = filename.substring(1) +"/";
+			ret = ret + String.format("<a href='%s'>%s</a><br />", "/"+file.getParent(), "../");
 		}
 		
 		for(File child: file.listFiles()){
-			ret = ret + String.format("<a href='%s'>%s</a><br />", path + child.getName(), child.getName());
+			if(child.canRead())
+				ret = ret + String.format("<a href='%s'>%s</a><br />", path + child.getName(), child.getName());
 		}
 		
 		ret.concat("</body></html>");
