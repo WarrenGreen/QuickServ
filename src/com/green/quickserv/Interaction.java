@@ -19,6 +19,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JTree;
@@ -41,6 +42,7 @@ public class Interaction {
 	private JLabel lblStatusBar;
 	private JLabel lblPort;
 	private JTextField txtPort;
+	private JScrollPane scrollPane;
 	
 	private static Server serv;
 	private Thread t = null;
@@ -90,11 +92,13 @@ public class Interaction {
 		
 		DefaultMutableTreeNode root = getFileStructure(new DefaultMutableTreeNode(new File("./")));
 		tree = new JTree(root);
+		tree.setAutoscrolls(true);
 		CellRenderer cr = new CellRenderer();
 		FileViewPanel.setLayout(new BorderLayout(0, 0));
 		tree.setCellRenderer(cr);
 		
 		FileViewPanel.add(tree, BorderLayout.CENTER);
+		FileViewPanel.add(new JScrollPane(tree), BorderLayout.CENTER);
 		
 		panel_1 = new JPanel();
 		FileViewPanel.add(panel_1, BorderLayout.EAST);
@@ -120,8 +124,7 @@ public class Interaction {
 		btnUnshare.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				for(TreePath tp: tree.getSelectionPaths()){
-					File f = (File)((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
-					setShare(f, false);
+					setShare((DefaultMutableTreeNode)tp.getLastPathComponent(), false);
 				}
 				
 				tree.repaint();
@@ -133,8 +136,7 @@ public class Interaction {
 		btnShare.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				for(TreePath tp: tree.getSelectionPaths()){
-					File f = (File)((DefaultMutableTreeNode)tp.getLastPathComponent()).getUserObject();
-					setShare(f, true);
+					setShare((DefaultMutableTreeNode)tp.getLastPathComponent(), true);
 				}
 				
 				tree.repaint();
@@ -216,20 +218,28 @@ public class Interaction {
 		Enumeration treeEnum = ((DefaultMutableTreeNode)tree.getModel().getRoot()).preorderEnumeration();
 		treeEnum.nextElement();
 		while(treeEnum.hasMoreElements()){
-			File f = ((File)((DefaultMutableTreeNode)treeEnum.nextElement()).getUserObject());
-			setShare(f, share);
+			setShare((DefaultMutableTreeNode)treeEnum.nextElement(), share);
 		}
 		
 		tree.repaint();
 	}
 	
-	private void setShare(File f, Boolean share){
-		f.setReadable(share);
+	private void setShare(DefaultMutableTreeNode n, Boolean share){
+
+		while(n != tree.getModel().getRoot()){
+			File f = (File)n.getUserObject();
+			f.setReadable(share);
+			if(!share) break;
+			n = (DefaultMutableTreeNode) n.getParent();
+		}
+		
 	}
 	
 	private DefaultMutableTreeNode getFileStructure(DefaultMutableTreeNode node) {
 		File cf = ((File)node.getUserObject());
-		if(!cf.isDirectory() || !cf.canRead()) return node;
+		cf.setReadable(true);
+		if(!cf.isDirectory()) return node;
+		
 		for(File f: cf.listFiles()){
 			DefaultMutableTreeNode n = new DefaultMutableTreeNode(f);
 			node.add(n);
@@ -246,9 +256,18 @@ public class Interaction {
 		{  
 			super.getTreeCellRendererComponent(tree, value, sel, expanded, leaf, row, hasFocus);  
 			DefaultMutableTreeNode node = (DefaultMutableTreeNode)value;  
-			File f = (File) node.getUserObject();			
+			File f = (File) node.getUserObject();	
+			boolean parentBlock = false;
 			
-			if(f.canRead()){
+			while(node != tree.getModel().getRoot()){
+				if(!((File)node.getUserObject()).canRead()){
+					parentBlock = true;
+				}
+				
+				node = (DefaultMutableTreeNode) node.getParent();
+			}
+			
+			if(f.canRead() && !parentBlock){
 				this.setForeground(Color.black);
 			}else{
 				this.setForeground(Color.red);
